@@ -7,7 +7,8 @@ name = "langchain-pixeltable"
 version = "0.1.0"
 description = "LangChain VectorStore integration for Pixeltable multimodal data infrastructure."
 readme = "README.md"
-license = {text = "Apache-2.0"}
+license = "Apache-2.0"
+license-files = ["LICENSE"]
 requires-python = ">=3.10"
 authors = [
     { name = "Pixeltable", email = "contact@pixeltable.com" },
@@ -16,7 +17,6 @@ keywords = ["langchain", "pixeltable", "vectorstore", "multimodal", "embeddings"
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: Apache Software License",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
