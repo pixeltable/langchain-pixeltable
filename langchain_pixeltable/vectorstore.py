@@ -3,11 +3,14 @@
 Bridges LangChain's VectorStore interface with Pixeltable's embedding index
 and similarity search, letting LangChain users use Pixeltable as a persistent,
 multimodal-ready vector backend.
+
+Key Pixeltable advantages exposed here:
+- ``filter`` dict on similarity search maps to Pixeltable's ``.where()`` clause
+- ``.table`` property gives direct access for computed columns, lineage, joins
 """
 
 from __future__ import annotations
 
-import json
 import logging
 import uuid
 from typing import Any, Iterable, Optional
@@ -76,6 +79,33 @@ class PixeltableVectorStore(VectorStore):
     @property
     def embeddings(self) -> Embeddings:
         return self._embedding
+
+    @property
+    def table(self) -> pxt.Table:
+        """Direct access to the underlying Pixeltable table.
+
+        Use this for Pixeltable-native operations that go beyond the
+        VectorStore interface: computed columns, joins, ``.where()`` with
+        arbitrary predicates, version history, etc.
+        """
+        return self._get_or_create_table()
+
+    def _build_where(self, filter: Optional[dict[str, Any]]) -> Optional[Any]:
+        """Translate a ``{key: value}`` filter dict into a Pixeltable predicate.
+
+        Each key is looked up inside the JSON metadata column.  All conditions
+        are AND-ed together.  Supports flat equality checks -- for richer
+        predicates use ``.table`` directly.
+        """
+        if not filter:
+            return None
+        t = self._get_or_create_table()
+        meta_col = getattr(t, self._metadata_col)
+        predicate = None
+        for key, value in filter.items():
+            cond = meta_col[key] == value
+            predicate = cond if predicate is None else (predicate & cond)
+        return predicate
 
     def _get_or_create_table(self) -> pxt.Table:
         """Lazily initialize the Pixeltable table with schema and embedding index."""
@@ -170,31 +200,45 @@ class PixeltableVectorStore(VectorStore):
         return True
 
     def similarity_search(
-        self, query: str, k: int = 4, **kwargs: Any
+        self,
+        query: str,
+        k: int = 4,
+        filter: Optional[dict[str, Any]] = None,
+        **kwargs: Any,
     ) -> list[Document]:
         """Return documents most similar to the query string.
 
         Args:
             query: Query text.
             k: Number of results.
+            filter: Optional metadata filter dict.  Keys are metadata field
+                names; values are the required values.  All conditions are
+                AND-ed.  Maps to Pixeltable's ``.where()`` clause.
 
         Returns:
             List of LangChain Document objects.
         """
-        docs_and_scores = self.similarity_search_with_score(query, k=k, **kwargs)
+        docs_and_scores = self.similarity_search_with_score(query, k=k, filter=filter, **kwargs)
         return [doc for doc, _ in docs_and_scores]
 
     def similarity_search_with_score(
-        self, query: str, k: int = 4, **kwargs: Any
+        self,
+        query: str,
+        k: int = 4,
+        filter: Optional[dict[str, Any]] = None,
+        **kwargs: Any,
     ) -> list[tuple[Document, float]]:
         """Return documents and similarity scores for the query.
 
         Args:
             query: Query text.
             k: Number of results.
+            filter: Optional metadata filter dict.  Maps to Pixeltable
+                ``.where()`` -- the predicate is evaluated *before* ranking,
+                so only matching rows participate in the similarity sort.
 
         Returns:
-            List of (Document, score) tuples.
+            List of (Document, score) tuples, ordered by descending similarity.
         """
         t = self._get_or_create_table()
         text_col = getattr(t, self._text_col)
@@ -204,8 +248,14 @@ class PixeltableVectorStore(VectorStore):
 
         query_vec = np.array(self._embedding.embed_query(query), dtype=np.float32)
         sim = embed_col.similarity(vector=query_vec)
+
+        chain = t
+        where = self._build_where(filter)
+        if where is not None:
+            chain = chain.where(where)
+
         result_set = (
-            t.order_by(sim, asc=False)
+            chain.order_by(sim, asc=False)
             .limit(k)
             .select(text_col, meta_col, id_col, sim=sim)
             .collect()
@@ -223,13 +273,19 @@ class PixeltableVectorStore(VectorStore):
         return results
 
     def similarity_search_by_vector(
-        self, embedding: list[float], k: int = 4, **kwargs: Any
+        self,
+        embedding: list[float],
+        k: int = 4,
+        filter: Optional[dict[str, Any]] = None,
+        **kwargs: Any,
     ) -> list[Document]:
         """Return documents most similar to the given embedding vector.
 
         Args:
             embedding: Query embedding vector.
             k: Number of results.
+            filter: Optional metadata filter dict.  Maps to Pixeltable
+                ``.where()``.
 
         Returns:
             List of LangChain Document objects.
@@ -241,8 +297,14 @@ class PixeltableVectorStore(VectorStore):
         embed_col = getattr(t, self._embedding_col)
 
         sim = embed_col.similarity(vector=np.array(embedding, dtype=np.float32))
+
+        chain = t
+        where = self._build_where(filter)
+        if where is not None:
+            chain = chain.where(where)
+
         result_set = (
-            t.order_by(sim, asc=False)
+            chain.order_by(sim, asc=False)
             .limit(k)
             .select(text_col, meta_col, id_col)
             .collect()

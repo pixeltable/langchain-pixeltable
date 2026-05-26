@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "langchain-pixeltable"
-version = "0.1.0"
+version = "0.1.1"
 description = "LangChain VectorStore integration for Pixeltable multimodal data infrastructure."
 readme = "README.md"
 license = "Apache-2.0"
