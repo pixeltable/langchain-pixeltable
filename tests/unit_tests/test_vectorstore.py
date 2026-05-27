@@ -23,4 +23,4 @@ def test_version():
     """Verify version is set."""
     import langchain_pixeltable
 
-    assert langchain_pixeltable.__version__ == "0.1.1"
+    assert langchain_pixeltable.__version__ == "0.1.2"

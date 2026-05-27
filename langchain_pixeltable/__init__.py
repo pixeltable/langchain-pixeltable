@@ -18,4 +18,4 @@ Usage:
 from langchain_pixeltable.vectorstore import PixeltableVectorStore
 
 __all__ = ["PixeltableVectorStore"]
-__version__ = "0.1.1"
+__version__ = "0.1.2"
