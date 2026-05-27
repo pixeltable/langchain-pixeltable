@@ -13,7 +13,8 @@ from __future__ import annotations
 
 import logging
 import uuid
-from typing import Any, Iterable, Optional
+from collections.abc import Iterable
+from typing import Any
 
 import numpy as np
 import pixeltable as pxt
@@ -23,10 +24,10 @@ from langchain_core.vectorstores import VectorStore
 
 logger = logging.getLogger(__name__)
 
-_DEFAULT_TEXT_COL = 'text'
-_DEFAULT_METADATA_COL = 'metadata'
-_DEFAULT_ID_COL = 'id'
-_DEFAULT_EMBEDDING_COL = 'embedding'
+_DEFAULT_TEXT_COL = "text"
+_DEFAULT_METADATA_COL = "metadata"
+_DEFAULT_ID_COL = "id"
+_DEFAULT_EMBEDDING_COL = "embedding"
 
 
 class PixeltableVectorStore(VectorStore):
@@ -65,7 +66,7 @@ class PixeltableVectorStore(VectorStore):
         metadata_column: str = _DEFAULT_METADATA_COL,
         id_column: str = _DEFAULT_ID_COL,
         embedding_column: str = _DEFAULT_EMBEDDING_COL,
-        metric: str = 'cosine',
+        metric: str = "cosine",
     ):
         self._table_name = table_name
         self._embedding = embedding
@@ -90,7 +91,7 @@ class PixeltableVectorStore(VectorStore):
         """
         return self._get_or_create_table()
 
-    def _build_where(self, filter: Optional[dict[str, Any]]) -> Optional[Any]:
+    def _build_where(self, filter: dict[str, Any] | None) -> Any | None:
         """Translate a ``{key: value}`` filter dict into a Pixeltable predicate.
 
         Each key is looked up inside the JSON metadata column.  All conditions
@@ -118,11 +119,11 @@ class PixeltableVectorStore(VectorStore):
         except Exception:
             pass
 
-        parts = self._table_name.rsplit('.', 1)
+        parts = self._table_name.rsplit(".", 1)
         if len(parts) == 2:
-            pxt.create_dir(parts[0], if_exists='ignore')
+            pxt.create_dir(parts[0], if_exists="ignore")
 
-        probe = self._embedding.embed_query('probe')
+        probe = self._embedding.embed_query("probe")
         embed_dim = len(probe)
 
         self._table = pxt.create_table(
@@ -133,22 +134,22 @@ class PixeltableVectorStore(VectorStore):
                 self._metadata_col: pxt.Json,
                 self._embedding_col: pxt.Array[(embed_dim,), pxt.Float],
             },
-            if_exists='ignore',
+            if_exists="ignore",
         )
         t = self._table
         t.add_embedding_index(
             self._embedding_col,
             metric=self._metric,
-            if_exists='ignore',
+            if_exists="ignore",
         )
         return t
 
     def add_texts(
         self,
         texts: Iterable[str],
-        metadatas: Optional[list[dict]] = None,
+        metadatas: list[dict] | None = None,
         *,
-        ids: Optional[list[str]] = None,
+        ids: list[str] | None = None,
         **kwargs: Any,
     ) -> list[str]:
         """Add texts with optional metadata to the vector store.
@@ -177,12 +178,12 @@ class PixeltableVectorStore(VectorStore):
                 self._metadata_col: meta,
                 self._embedding_col: vec,
             }
-            for id_, text, meta, vec in zip(ids, text_list, metadatas, vectors)
+            for id_, text, meta, vec in zip(ids, text_list, metadatas, vectors, strict=True)
         ]
         t.insert(rows)
         return ids
 
-    def delete(self, ids: Optional[list[str]] = None, **kwargs: Any) -> Optional[bool]:
+    def delete(self, ids: list[str] | None = None, **kwargs: Any) -> bool | None:
         """Delete documents by ID.
 
         Args:
@@ -203,7 +204,7 @@ class PixeltableVectorStore(VectorStore):
         self,
         query: str,
         k: int = 4,
-        filter: Optional[dict[str, Any]] = None,
+        filter: dict[str, Any] | None = None,
         **kwargs: Any,
     ) -> list[Document]:
         """Return documents most similar to the query string.
@@ -225,7 +226,7 @@ class PixeltableVectorStore(VectorStore):
         self,
         query: str,
         k: int = 4,
-        filter: Optional[dict[str, Any]] = None,
+        filter: dict[str, Any] | None = None,
         **kwargs: Any,
     ) -> list[tuple[Document, float]]:
         """Return documents and similarity scores for the query.
@@ -254,12 +255,7 @@ class PixeltableVectorStore(VectorStore):
         if where is not None:
             chain = chain.where(where)
 
-        result_set = (
-            chain.order_by(sim, asc=False)
-            .limit(k)
-            .select(text_col, meta_col, id_col, sim=sim)
-            .collect()
-        )
+        result_set = chain.order_by(sim, asc=False).limit(k).select(text_col, meta_col, id_col, sim=sim).collect()
 
         results = []
         for row in result_set:
@@ -269,14 +265,14 @@ class PixeltableVectorStore(VectorStore):
                 metadata=metadata,
                 id=row[self._id_col],
             )
-            results.append((doc, float(row['sim'])))
+            results.append((doc, float(row["sim"])))
         return results
 
     def similarity_search_by_vector(
         self,
         embedding: list[float],
         k: int = 4,
-        filter: Optional[dict[str, Any]] = None,
+        filter: dict[str, Any] | None = None,
         **kwargs: Any,
     ) -> list[Document]:
         """Return documents most similar to the given embedding vector.
@@ -303,12 +299,7 @@ class PixeltableVectorStore(VectorStore):
         if where is not None:
             chain = chain.where(where)
 
-        result_set = (
-            chain.order_by(sim, asc=False)
-            .limit(k)
-            .select(text_col, meta_col, id_col)
-            .collect()
-        )
+        result_set = chain.order_by(sim, asc=False).limit(k).select(text_col, meta_col, id_col).collect()
 
         results = []
         for row in result_set:
@@ -326,10 +317,10 @@ class PixeltableVectorStore(VectorStore):
         cls,
         texts: list[str],
         embedding: Embeddings,
-        metadatas: Optional[list[dict]] = None,
+        metadatas: list[dict] | None = None,
         *,
-        ids: Optional[list[str]] = None,
-        table_name: str = 'langchain.documents',
+        ids: list[str] | None = None,
+        table_name: str = "langchain.documents",
         **kwargs: Any,
     ) -> PixeltableVectorStore:
         """Create a PixeltableVectorStore from a list of texts.

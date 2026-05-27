@@ -1,10 +1,40 @@
+# Python
 __pycache__/
-*.pyc
-*.egg-info/
-dist/
+*.py[cod]
+*$py.class
+*.so
+
+# Distribution / packaging
 build/
-.eggs/
-.pytest_cache/
-.ruff_cache/
+dist/
+*.egg-info/
 *.egg
+.eggs/
+
+# Testing / coverage
+htmlcov/
+.coverage
+.coverage.*
+coverage/
+.pytest_cache/
+
+# Type checking
+.mypy_cache/
+
+# Virtual environments
+.venv
+venv/
+
+# Linting
+.ruff_cache/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Secrets
 .env
